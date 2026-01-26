@@ -2,10 +2,10 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { useSignIn } from "@clerk/nextjs"
+import { useSignIn, useAuth } from "@clerk/nextjs"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -16,10 +16,19 @@ import GoogleSignInButton from "@/components/auth/google-signin-button"
 export default function LoginPage() {
   const router = useRouter()
   const { signIn, isLoaded, setActive } = useSignIn()
+  const { isSignedIn, isLoaded: authLoaded } = useAuth()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+
+  // Redirect if already signed in
+  useEffect(() => {
+    if (authLoaded && isSignedIn) {
+      router.push("/dashboard")
+      router.refresh()
+    }
+  }, [authLoaded, isSignedIn, router])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
