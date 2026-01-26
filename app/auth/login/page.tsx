@@ -35,10 +35,21 @@ export default function LoginPage() {
         password,
       })
 
-      if (result.status === "complete") {
-        await setActive({ session: result.createdSessionId })
-        router.push("/dashboard")
-        router.refresh()
+      if (result.status === "complete" && result.createdSessionId) {
+        try {
+          // Set the active session and wait for it to be established
+          await setActive({ session: result.createdSessionId })
+          // Small delay to ensure session is fully established
+          await new Promise(resolve => setTimeout(resolve, 100))
+          
+          router.push("/dashboard")
+          router.refresh()
+        } catch (sessionErr: any) {
+          console.error("Session activation error:", sessionErr)
+          // If session activation fails, still redirect - Clerk will handle auth state
+          router.push("/dashboard")
+          router.refresh()
+        }
       } else {
         setError("Sign in incomplete. Please try again.")
       }

@@ -28,7 +28,10 @@ export default function SignupPage() {
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault()
     
-    if (!isLoaded) return
+    if (!isLoaded || !signUp) {
+      setError("Authentication service is not ready. Please refresh the page.")
+      return
+    }
 
     setIsLoading(true)
     setError(null)
@@ -46,28 +49,73 @@ export default function SignupPage() {
     }
 
     try {
+      // Prepare signup data - ensure firstName is not empty
+      const firstName = name.trim().split(" ")[0] || name.trim() || "User"
+      const lastName = name.trim().split(" ").slice(1).join(" ") || ""
+
+      // Validate that we have required fields
+      if (!email.trim() || !password.trim() || !firstName.trim()) {
+        setError("Please fill in all required fields")
+        setIsLoading(false)
+        return
+      }
+
       const result = await signUp.create({
-        emailAddress: email,
+        emailAddress: email.trim(),
         password,
-        firstName: name.split(" ")[0] || name,
-        lastName: name.split(" ").slice(1).join(" ") || "",
+        firstName: firstName,
+        lastName: lastName,
       })
 
-      if (result.status === "complete" && setActive) {
-        // Store name in sessionStorage to use in onboarding
+      if (result.status === "complete" && setActive && result.createdSessionId) {
+        // Account is fully created - redirect to onboarding
         sessionStorage.setItem("signupName", name)
         sessionStorage.setItem("signupEmail", email)
         
-        await setActive({ session: result.createdSessionId })
-        router.push("/onboarding")
-        router.refresh()
+        try {
+          // Set the active session and wait for it to be established
+          await setActive({ session: result.createdSessionId })
+          // Small delay to ensure session is fully established
+          await new Promise(resolve => setTimeout(resolve, 100))
+          
+          router.push("/onboarding")
+          router.refresh()
+        } catch (sessionErr: any) {
+          console.error("Session activation error:", sessionErr)
+          // If session activation fails, still redirect - Clerk will handle auth state
+          router.push("/onboarding")
+          router.refresh()
+        }
       } else if (result.status === "missing_requirements") {
-        // Email verification required
-        setPendingVerification(true)
+        // Email verification is required - we MUST complete this to create the account
+        // Prepare email verification and show the modal
+        try {
+          await signUp.prepareEmailAddressVerification({ strategy: "email_code" })
+          // Show verification modal - account will be created after verification
+          setIsLoading(false) // Stop loading so the input field is enabled
+          setPendingVerification(true)
+        } catch (prepErr: any) {
+          // If preparation fails, show error
+          console.error("Verification preparation error:", prepErr)
+          setError(prepErr.errors?.[0]?.message || "Failed to send verification code. Please try again.")
+          setIsLoading(false)
+        }
+      } else {
+        // Unexpected status
+        console.error("Unexpected signup status:", result.status)
+        setError("Unexpected response. Please try again.")
+        setIsLoading(false)
       }
     } catch (err: any) {
-      setError(err.errors?.[0]?.message || "Failed to create account")
-    } finally {
+      console.error("Signup error:", err)
+      // Better error handling
+      if (err.errors && err.errors.length > 0) {
+        setError(err.errors[0].message || "Failed to create account")
+      } else if (err.message) {
+        setError(err.message)
+      } else {
+        setError("Failed to create account. Please check your information and try again.")
+      }
       setIsLoading(false)
     }
   }
@@ -75,7 +123,10 @@ export default function SignupPage() {
   const handleVerification = async (e: React.FormEvent) => {
     e.preventDefault()
     
-    if (!isLoaded || !setActive) return
+    if (!isLoaded || !setActive || !signUp) {
+      setError("Authentication service is not ready. Please refresh the page.")
+      return
+    }
 
     setIsLoading(true)
     setError(null)
@@ -85,18 +136,60 @@ export default function SignupPage() {
         code,
       })
 
-      if (result.status === "complete") {
+      console.log("Verification result:", result.status, "Session ID:", result.createdSessionId || signUp.createdSessionId)
+
+      // Check if verification was successful
+      // After verification, the status should be "complete"
+      if (result.status === "complete" || signUp.status === "complete") {
         // Store name in sessionStorage to use in onboarding
         sessionStorage.setItem("signupName", name)
         sessionStorage.setItem("signupEmail", email)
         
-        await setActive({ session: result.createdSessionId })
-        router.push("/onboarding")
-        router.refresh()
+        // Get the session ID from result or signUp object
+        const sessionId = result.createdSessionId || signUp.createdSessionId
+        
+        console.log("Setting active session:", sessionId)
+        
+        if (sessionId && setActive) {
+          try {
+            // Set the active session and wait for it to be established
+            await setActive({ session: sessionId })
+            console.log("Session activated successfully")
+            // Small delay to ensure session is fully established
+            await new Promise(resolve => setTimeout(resolve, 300))
+          } catch (sessionErr: any) {
+            console.error("Session activation error:", sessionErr)
+            // Continue with redirect even if setActive fails
+          }
+        }
+        
+        console.log("Redirecting to onboarding...")
+        // Always redirect to onboarding after successful verification
+        // Use both router and window.location as fallback
+        try {
+          router.push("/onboarding")
+          router.refresh()
+          // Fallback: if router doesn't work, use window.location
+          setTimeout(() => {
+            if (window.location.pathname !== "/onboarding") {
+              console.log("Router redirect failed, using window.location")
+              window.location.href = "/onboarding"
+            }
+          }, 500)
+        } catch (redirectErr) {
+          console.error("Redirect error:", redirectErr)
+          // Fallback to window.location
+          window.location.href = "/onboarding"
+        }
+      } else {
+        // Verification incomplete - show what status we got
+        console.log("Verification incomplete. Status:", result.status, "SignUp status:", signUp.status)
+        setError(`Verification incomplete (status: ${result.status}). Please check your code and try again.`)
+        setIsLoading(false)
       }
     } catch (err: any) {
-      setError(err.errors?.[0]?.message || "Verification failed")
-    } finally {
+      console.error("Verification error:", err)
+      setError(err.errors?.[0]?.message || err.message || "Verification failed. Please check your code and try again.")
       setIsLoading(false)
     }
   }
@@ -133,9 +226,11 @@ export default function SignupPage() {
                     placeholder="Enter 6-digit code"
                     required
                     value={code}
-                    onChange={(e) => setCode(e.target.value)}
+                    onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
                     disabled={isLoading}
                     maxLength={6}
+                    autoFocus
+                    className="text-center text-lg tracking-widest"
                   />
                 </div>
                 {error && (
@@ -143,9 +238,32 @@ export default function SignupPage() {
                     {error}
                   </div>
                 )}
-                <Button type="submit" className="w-full" disabled={isLoading}>
+                <Button type="submit" className="w-full" disabled={isLoading || code.length !== 6}>
                   {isLoading ? "Verifying..." : "Verify Email"}
                 </Button>
+                <div className="text-center">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (!isLoaded || !signUp) return
+                      try {
+                        setIsLoading(true)
+                        setError(null)
+                        await signUp.prepareEmailAddressVerification({ strategy: "email_code" })
+                        setError(null)
+                        alert("Verification code has been resent to your email.")
+                      } catch (err: any) {
+                        setError(err.errors?.[0]?.message || "Failed to resend code. Please try again.")
+                      } finally {
+                        setIsLoading(false)
+                      }
+                    }}
+                    disabled={isLoading}
+                    className="text-sm text-primary hover:underline disabled:opacity-50"
+                  >
+                    Didn't receive the code? Resend
+                  </button>
+                </div>
               </form>
             ) : (
               <form onSubmit={handleSignup} className="space-y-4">
@@ -215,6 +333,8 @@ export default function SignupPage() {
               </p>
               </form>
             )}
+            {/* Required for Clerk's bot sign-up protection */}
+            <div id="clerk-captcha" />
           </CardContent>
           {!pendingVerification && (
             <CardFooter className="flex flex-col gap-4">

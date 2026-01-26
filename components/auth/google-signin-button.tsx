@@ -1,7 +1,7 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
-import { useSignIn, useSignUp } from "@clerk/nextjs"
+import { useSignIn, useSignUp, useAuth } from "@clerk/nextjs"
 import { useRouter } from "next/navigation"
 import type { FC } from "react"
 
@@ -13,9 +13,17 @@ interface GoogleSignInButtonProps {
 const GoogleSignInButton: FC<GoogleSignInButtonProps> = ({ isLoading = false, mode = "sign-in" }) => {
   const { signIn, isLoaded: signInLoaded } = useSignIn()
   const { signUp, isLoaded: signUpLoaded } = useSignUp()
+  const { isLoaded: authLoaded, userId } = useAuth()
   const router = useRouter()
 
   const handleGoogleSignIn = async () => {
+    // Check if user is already authenticated
+    if (authLoaded && userId) {
+      // User is already signed in, redirect to dashboard
+      router.push("/dashboard")
+      return
+    }
+
     if (!signInLoaded && mode === "sign-in") return
     if (!signUpLoaded && mode === "sign-up") return
 
@@ -33,8 +41,12 @@ const GoogleSignInButton: FC<GoogleSignInButtonProps> = ({ isLoading = false, mo
           redirectUrlComplete: "/onboarding",
         })
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Google sign-in error:", error)
+      // If error is "already signed in", redirect to dashboard
+      if (error?.message?.includes("already signed in") || error?.code === "session_exists") {
+        router.push("/dashboard")
+      }
     }
   }
 

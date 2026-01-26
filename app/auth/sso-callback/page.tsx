@@ -1,20 +1,44 @@
 "use client";
 
 import { AuthenticateWithRedirectCallback } from '@clerk/nextjs';
-import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
-import { useAuth } from '@clerk/nextjs';
+import { useEffect, useRef, useState } from 'react';
+
+// Module-level singleton to persist across React strict mode double renders
+let isInitialized = false;
 
 export default function SSOCallbackPage() {
-  const router = useRouter();
-  const { isLoaded, userId } = useAuth();
+  const [mounted, setMounted] = useState(false);
+  const initRef = useRef(false);
 
   useEffect(() => {
-    if (isLoaded && userId) {
-      // User is authenticated, redirect to dashboard
-      router.push('/dashboard');
+    // Only mount once, even with React strict mode
+    if (initRef.current || isInitialized) {
+      return;
     }
-  }, [isLoaded, userId, router]);
+
+    initRef.current = true;
+    isInitialized = true;
+    setMounted(true);
+
+    // Prevent cleanup from resetting in strict mode
+    return () => {
+      // Don't reset - keep initialized state
+    };
+  }, []);
+
+  // Only render the callback component once
+  if (!mounted) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="mb-4 inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-gray-900 border-r-transparent"></div>
+          <p className="text-gray-600">Completing authentication...</p>
+        </div>
+        {/* Required for Clerk's bot sign-up protection */}
+        <div id="clerk-captcha" />
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50">
@@ -26,7 +50,7 @@ export default function SSOCallbackPage() {
         afterSignInUrl="/dashboard"
         afterSignUpUrl="/onboarding"
       />
-      {/* Required for sign-up flows - Clerk's bot sign-up protection */}
+      {/* Required for Clerk's bot sign-up protection */}
       <div id="clerk-captcha" />
     </div>
   );
