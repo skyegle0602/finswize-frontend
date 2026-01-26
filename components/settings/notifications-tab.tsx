@@ -62,7 +62,7 @@ export function NotificationsTab() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="font-medium text-foreground">In-App</p>
-                <p className="text-sm text-muted-foreground">Notifications in FinWise</p>
+                <p className="text-sm text-muted-foreground">Notifications in FinsWize</p>
               </div>
               <Switch checked={inAppDelivery} onCheckedChange={setInAppDelivery} />
             </div>

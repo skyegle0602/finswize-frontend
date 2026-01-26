@@ -57,7 +57,7 @@ export default function HomePage() {
             Ready to Take Control of Your Finances?
           </h2>
           <p className="text-lg text-primary-foreground/90 mb-8">
-            Join thousands of freelancers and small businesses managing their finances smarter with FinWise
+            Join thousands of freelancers and small businesses managing their finances smarter with FinsWize
           </p>
           <Link href="/auth/signup">
             <Button size="lg" variant="secondary" className="text-white text-sm gap-2">

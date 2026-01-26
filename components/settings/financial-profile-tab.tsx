@@ -18,7 +18,7 @@ export function FinancialProfileTab() {
     <Card className="rounded-xl border">
       <CardHeader>
         <CardTitle>Financial Profile</CardTitle>
-        <CardDescription>This helps FinWise give better advice</CardDescription>
+        <CardDescription>This helps FinsWize give better advice</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="space-y-3">

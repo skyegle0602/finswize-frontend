@@ -201,7 +201,7 @@ export default function SignupPage() {
           <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
             <Sparkles className="w-6 h-6 text-primary-foreground" />
           </div>
-          <span className="text-2xl font-semibold text-foreground">FinWise</span>
+          <span className="text-2xl font-semibold text-foreground">FinsWize</span>
         </div>
 
         <Card>

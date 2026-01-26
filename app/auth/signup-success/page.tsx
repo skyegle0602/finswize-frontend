@@ -11,7 +11,7 @@ export default function SignupSuccessPage() {
           <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
             <Sparkles className="w-6 h-6 text-primary-foreground" />
           </div>
-          <span className="text-2xl font-semibold text-foreground">FinWise</span>
+          <span className="text-2xl font-semibold text-foreground">FinsWize</span>
         </div>
 
         <Card>
@@ -24,7 +24,7 @@ export default function SignupSuccessPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-sm text-muted-foreground text-center leading-relaxed">
-              Click the link in the email to confirm your account and start using FinWise. If you don't see the email,
+              Click the link in the email to confirm your account and start using FinsWize. If you don't see the email,
               check your spam folder.
             </p>
             <Button asChild className="w-full">

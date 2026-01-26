@@ -18,12 +18,12 @@ const aboutInfo: AboutInfo[] = [
   {
     title: "Our Mission",
     description:
-      "We believe that every freelancer and small business owner deserves access to sophisticated financial tools. FinWise combines cutting-edge AI technology with intuitive design to make financial management simple, smart, and accessible.",
+      "We believe that every freelancer and small business owner deserves access to sophisticated financial tools. FinsWize combines cutting-edge AI technology with intuitive design to make financial management simple, smart, and accessible.",
   },
   {
     title: "Why Choose Us",
     description:
-      "Unlike traditional finance apps, FinWise is built specifically for the unique needs of freelancers and SMBs. Our AI learns from your spending patterns to provide personalized insights that help you make better financial decisions.",
+      "Unlike traditional finance apps, FinsWize is built specifically for the unique needs of freelancers and SMBs. Our AI learns from your spending patterns to provide personalized insights that help you make better financial decisions.",
   },
 ]
 
@@ -50,7 +50,7 @@ const AboutSection: FC = () => {
     <section id="about" className="container mx-auto px-4 py-20 bg-muted/30">
       <div className="max-w-4xl mx-auto">
         <div className="text-center mb-12">
-          <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">About FinWise</h2>
+          <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">About FinsWize</h2>
           <p className="text-lg text-muted-foreground">
             Empowering freelancers and small businesses with intelligent financial management
           </p>

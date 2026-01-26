@@ -17,7 +17,7 @@ const Header: FC<HeaderProps> = ({ className, isLoggedIn }) => {
             <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
               <Sparkles className="w-5 h-5 text-primary-foreground" />
             </div>
-            <span className="text-xl font-semibold text-foreground">FinWise</span>
+            <span className="text-xl font-semibold text-foreground">FinsWize</span>
           </div>
           <nav className="hidden md:flex items-center gap-x-16">
             <Link href="#features" className="text-xl text-black-400 transition-colors">

@@ -162,7 +162,7 @@ function SetNewPasswordContent() {
 
         {/* Subtitle */}
         <p className="mb-6 text-sm text-gray-600">
-          Enter your new password for FinWise
+          Enter your new password for FinsWize
         </p>
 
         {/* Error Message */}
