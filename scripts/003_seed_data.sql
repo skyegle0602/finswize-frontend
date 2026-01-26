@@ -1,0 +1,2 @@
+-- This script will be used to seed initial data after user signs up
+-- For now, it's a placeholder for any default categories or settings
