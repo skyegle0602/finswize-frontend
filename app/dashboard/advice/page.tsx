@@ -1,347 +1,246 @@
 "use client"
 
-import { useState } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Lightbulb, TrendingUp, Shield, PiggyBank, Zap, ChevronRight, Sparkles } from "lucide-react"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { ContextBar } from "@/components/ai-advisor/context-bar"
+import { ChatMessage } from "@/components/ai-advisor/chat-message"
+import { QuickActions } from "@/components/ai-advisor/quick-actions"
+import { ChatInput } from "@/components/ai-advisor/chat-input"
+import { useState, useRef, useEffect } from "react"
 
-interface AdviceCard {
+interface Message {
   id: string
-  category: "savings" | "spending" | "investment" | "tax" | "general"
-  priority: "high" | "medium" | "low"
-  title: string
-  description: string
-  impact: string
-  actionable: boolean
+  isAI: boolean
+  message: string
+  reason?: string
+  actions?: Array<{
+    label: string
+    href?: string
+    onClick?: () => void
+    variant?: "default" | "outline"
+  }>
+  dataSource?: string
+  suggestedNextStep?: string
 }
 
-export default function AdvicePage() {
-  const [advice] = useState<AdviceCard[]>([
-    {
+export default function AIAdvisorPage() {
+  // Mock data - in production, this would come from your backend
+  const lastSynced = "Jan 24, 2025"
+  const cashBalance = 12450
+  const runway = 4.2
+  const alertCount = 2
+
+  // Generate data-driven first message
+  const getInitialMessage = (): Message => {
+    const runwayText = runway < 3 ? "below the safe zone" : runway < 6 ? "needs attention" : "is healthy"
+    const alertText = alertCount > 0 ? `${alertCount} alert${alertCount > 1 ? "s" : ""} may affect your cash flow this month` : "no urgent alerts"
+    
+    return {
       id: "1",
-      category: "savings",
-      priority: "high",
-      title: "Increase Emergency Fund Contributions",
-      description:
-        "Your emergency fund is at 68% of your target. Based on your income stability and expenses, we recommend increasing monthly contributions by $200 to reach your goal 3 months earlier.",
-      impact: "Potential savings: $2,400 faster goal completion",
-      actionable: true,
-    },
-    {
-      id: "2",
-      category: "spending",
-      priority: "high",
-      title: "Review Software Subscriptions",
-      description:
-        "You're spending $1,240/month on business tools. We've identified 3 subscriptions you haven't used in 60 days that could save you $180/month if cancelled.",
-      impact: "Potential savings: $2,160/year",
-      actionable: true,
-    },
-    {
-      id: "3",
-      category: "tax",
-      priority: "high",
-      title: "Optimize Quarterly Tax Payments",
-      description:
-        "Based on your current income trajectory, you should increase your quarterly tax reserve by $500/month to avoid underpayment penalties.",
-      impact: "Avoid potential penalties: $500-1,000",
-      actionable: true,
-    },
-    {
-      id: "4",
-      category: "spending",
-      priority: "medium",
-      title: "Negotiate Marketing Costs",
-      description:
-        "Your marketing spend is 19% of revenue. Industry average for your business type is 12-15%. Consider renegotiating contracts or exploring more cost-effective channels.",
-      impact: "Potential savings: $400-600/month",
-      actionable: true,
-    },
-    {
-      id: "5",
-      category: "investment",
-      priority: "medium",
-      title: "Start Retirement Contributions",
-      description:
-        "You have $800/month in surplus after expenses and savings goals. Consider opening a SEP IRA and contributing $500/month for tax benefits and long-term growth.",
-      impact: "Tax savings: ~$150/month, Long-term growth potential",
-      actionable: true,
-    },
-    {
-      id: "6",
-      category: "general",
-      priority: "low",
-      title: "Diversify Income Streams",
-      description:
-        "You rely on 2 main clients for 80% of income. Consider diversifying your client base or creating passive income streams to reduce financial risk.",
-      impact: "Risk reduction and income stability",
-      actionable: false,
-    },
-  ])
-
-  const getCategoryIcon = (category: AdviceCard["category"]) => {
-    switch (category) {
-      case "savings":
-        return <PiggyBank className="w-5 h-5" />
-      case "spending":
-        return <TrendingUp className="w-5 h-5" />
-      case "investment":
-        return <Zap className="w-5 h-5" />
-      case "tax":
-        return <Shield className="w-5 h-5" />
-      default:
-        return <Lightbulb className="w-5 h-5" />
+      isAI: true,
+      message: `You currently have ${runway.toFixed(1)} months of runway. ${alertCount > 0 ? `${alertCount} alert${alertCount > 1 ? "s" : ""} may affect your cash flow this month.` : "Your finances look stable."}`,
+      reason: alertCount > 0 
+        ? "Want me to explain them or help you plan next steps?"
+        : "Want to explore growth scenarios or review your spending?",
+      actions: alertCount > 0
+        ? [
+            { label: "Explain alerts", href: "/dashboard/alerts", variant: "default" },
+            { label: "Plan next steps", href: "/dashboard/planning", variant: "outline" },
+          ]
+        : [
+            { label: "Explore scenarios", href: "/dashboard/planning", variant: "default" },
+            { label: "Review spending", href: "/dashboard/spending", variant: "outline" },
+          ],
+      dataSource: `Based on transactions from Jan 1–24, 2025`,
+      suggestedNextStep: alertCount > 0 ? "Open alerts to resolve issues" : "Create a planning scenario",
     }
   }
 
-  const getCategoryColor = (category: AdviceCard["category"]) => {
-    switch (category) {
-      case "savings":
-        return "bg-accent text-accent-foreground"
-      case "spending":
-        return "bg-chart-1 text-white"
-      case "investment":
-        return "bg-chart-4 text-white"
-      case "tax":
-        return "bg-chart-3 text-white"
-      default:
-        return "bg-muted text-muted-foreground"
+  const [messages, setMessages] = useState<Message[]>([getInitialMessage()])
+  const [isLoading, setIsLoading] = useState(false)
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+  }
+
+  useEffect(() => {
+    scrollToBottom()
+  }, [messages])
+
+  const generateAIResponse = (userMessage: string): Message => {
+    const lowerMessage = userMessage.toLowerCase()
+
+    // Simple rule-based responses (in production, this would call your AI API)
+    if (lowerMessage.includes("hire") || lowerMessage.includes("afford")) {
+      return {
+        id: Date.now().toString(),
+        isAI: true,
+        message: "Yes — you can afford this.",
+        reason: `Adding a $120/month expense reduces your runway from ${runway.toFixed(1)} → ${(runway - 0.4).toFixed(1)} months.`,
+        actions: [
+          { label: "View scenario", href: "/dashboard/planning", variant: "default" },
+          { label: "Adjust budget", href: "/dashboard/planning", variant: "outline" },
+        ],
+        dataSource: "Based on current cash balance and monthly expenses",
+        suggestedNextStep: "Open a planning scenario to simulate this change",
+      }
+    }
+
+    if (lowerMessage.includes("profit") || lowerMessage.includes("drop")) {
+      return {
+        id: Date.now().toString(),
+        isAI: true,
+        message: "Your profit dropped due to increased marketing spend.",
+        reason: "Google Ads expenses increased by $320 this month, while revenue stayed flat.",
+        actions: [
+          { label: "View transactions", href: "/dashboard/spending", variant: "default" },
+          { label: "Review marketing", href: "/dashboard/spending", variant: "outline" },
+        ],
+        dataSource: "Based on transactions from Jan 1–24, 2025",
+        suggestedNextStep: "Review marketing transactions to identify optimization opportunities",
+      }
+    }
+
+    if (lowerMessage.includes("runway") || lowerMessage.includes("healthy")) {
+      const isHealthy = runway >= 6
+      return {
+        id: Date.now().toString(),
+        isAI: true,
+        message: isHealthy ? "Your runway is healthy." : "Your runway needs attention.",
+        reason: isHealthy
+          ? `You have ${runway.toFixed(1)} months of runway, which is above the 6-month safety threshold.`
+          : `You have ${runway.toFixed(1)} months of runway. Consider reducing expenses or increasing revenue to reach 6 months.`,
+        actions: [
+          { label: "Open planning", href: "/dashboard/planning", variant: "default" },
+          { label: "View details", href: "/dashboard", variant: "outline" },
+        ],
+        dataSource: "Based on current cash balance and monthly burn rate",
+        suggestedNextStep: isHealthy ? "Explore growth scenarios" : "Plan cost reduction to extend runway",
+      }
+    }
+
+    if (lowerMessage.includes("focus") || lowerMessage.includes("month")) {
+      return {
+        id: Date.now().toString(),
+        isAI: true,
+        message: "Focus on extending your runway and reviewing your alerts.",
+        reason: `You have ${alertCount} alert${alertCount > 1 ? "s" : ""} that need attention, and your runway is below 6 months.`,
+        actions: [
+          { label: "View alerts", href: "/dashboard/alerts", variant: "default" },
+          { label: "Plan improvements", href: "/dashboard/planning", variant: "outline" },
+        ],
+        dataSource: "Based on your current financial snapshot and active alerts",
+        suggestedNextStep: alertCount > 0 ? "Open alerts to resolve issues first" : "Open planning to extend runway",
+      }
+    }
+
+    if (lowerMessage.includes("subscription") || lowerMessage.includes("recurring")) {
+      return {
+        id: Date.now().toString(),
+        isAI: true,
+        message: "You have several subscriptions that could be optimized.",
+        reason: "Personal subscriptions like Netflix and gym membership cost $65/month. Consider canceling to improve profit margin.",
+        actions: [
+          { label: "Review subscriptions", href: "/dashboard/planning", variant: "default" },
+          { label: "View spending", href: "/dashboard/spending", variant: "outline" },
+        ],
+        dataSource: "Based on recurring transactions from Jan 1–24, 2025",
+        suggestedNextStep: "Review subscriptions in Planning to identify savings",
+      }
+    }
+
+    // Default response
+    return {
+      id: Date.now().toString(),
+      isAI: true,
+      message: "I can help you understand your finances better.",
+      reason: "Try asking about your runway, profit, expenses, or alerts. I can also help you plan scenarios.",
+      actions: [
+        { label: "Check runway", href: "/dashboard/planning", variant: "outline" },
+        { label: "View alerts", href: "/dashboard/alerts", variant: "outline" },
+      ],
+      dataSource: "Based on your financial data",
+      suggestedNextStep: "Open planning to explore scenarios",
     }
   }
 
-  const getPriorityBadge = (priority: AdviceCard["priority"]) => {
-    switch (priority) {
-      case "high":
-        return <Badge className="bg-destructive text-destructive-foreground">High Priority</Badge>
-      case "medium":
-        return <Badge variant="secondary">Medium Priority</Badge>
-      default:
-        return <Badge variant="outline">Low Priority</Badge>
+  const handleSend = async (userMessage: string) => {
+    // Add user message
+    const userMsg: Message = {
+      id: Date.now().toString(),
+      isAI: false,
+      message: userMessage,
     }
+    setMessages((prev) => [...prev, userMsg])
+    setIsLoading(true)
+
+    // Simulate AI thinking time
+    setTimeout(() => {
+      const aiResponse = generateAIResponse(userMessage)
+      setMessages((prev) => [...prev, aiResponse])
+      setIsLoading(false)
+    }, 800)
   }
 
-  const filterByCategory = (category?: string) => {
-    if (!category) return advice
-    return advice.filter((item) => item.category === category)
+  const handleQuickAction = (action: string) => {
+    // Could trigger a specific question or action
+    console.log("Quick action clicked:", action)
   }
-
-  const highPriorityCount = advice.filter((item) => item.priority === "high").length
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground mb-2">Financial Advice</h1>
-          <p className="text-muted-foreground">AI-powered recommendations tailored to your finances</p>
+    <div className="min-h-screen bg-background">
+      <div className="max-w-4xl mx-auto px-4 py-8">
+        {/* Page Title */}
+        <div className="mb-6">
+          <h1 className="text-3xl font-bold text-foreground mb-2">AI Advisor</h1>
+          <p className="text-muted-foreground">Your thinking partner for financial decisions</p>
         </div>
-        <div className="flex items-center gap-2 px-4 py-2 bg-primary/10 border border-primary/20 rounded-lg">
-          <Sparkles className="w-5 h-5 text-primary" />
-          <span className="text-sm font-medium text-foreground">{highPriorityCount} high-priority actions</span>
+
+        {/* Context Bar */}
+        <ContextBar
+          lastSynced={lastSynced}
+          cashBalance={cashBalance}
+          runway={runway}
+          alertCount={alertCount}
+        />
+
+        {/* Chat Area */}
+        <div className="mb-6">
+          <div className="space-y-4 min-h-[400px] max-h-[600px] overflow-y-auto pb-4">
+            {messages.map((msg) => (
+              <ChatMessage
+                key={msg.id}
+                isAI={msg.isAI}
+                message={msg.message}
+                reason={msg.reason}
+                actions={msg.actions}
+                dataSource={msg.dataSource}
+                suggestedNextStep={msg.suggestedNextStep}
+              />
+            ))}
+            {isLoading && (
+              <div className="flex gap-3 mb-4">
+                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                  <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                </div>
+                <div className="flex-1">
+                  <div className="rounded-xl border p-4 bg-muted/30">
+                    <p className="text-muted-foreground">Thinking...</p>
+                  </div>
+                </div>
+              </div>
+            )}
+            <div ref={messagesEndRef} />
+          </div>
+        </div>
+
+        {/* Quick Actions */}
+        <QuickActions alertCount={alertCount} runway={runway} onActionClick={handleQuickAction} />
+
+        {/* Chat Input */}
+        <div className="mt-6">
+          <ChatInput onSend={handleSend} isLoading={isLoading} />
         </div>
       </div>
-
-      {/* Financial Health Score */}
-      <Card className="mb-8 bg-linear-to-br from-primary/5 to-accent/5 border-primary/20">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Sparkles className="w-6 h-6 text-primary" />
-            Your Financial Health Score
-          </CardTitle>
-          <CardDescription>Based on your spending, savings, and financial habits</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center gap-8">
-            <div className="shrink-0">
-              <div className="relative w-32 h-32">
-                <svg className="w-full h-full transform -rotate-90">
-                  <circle
-                    cx="64"
-                    cy="64"
-                    r="56"
-                    stroke="currentColor"
-                    strokeWidth="8"
-                    fill="none"
-                    className="text-muted"
-                  />
-                  <circle
-                    cx="64"
-                    cy="64"
-                    r="56"
-                    stroke="currentColor"
-                    strokeWidth="8"
-                    fill="none"
-                    strokeDasharray={`${2 * Math.PI * 56}`}
-                    strokeDashoffset={`${2 * Math.PI * 56 * (1 - 0.78)}`}
-                    className="text-accent"
-                    strokeLinecap="round"
-                  />
-                </svg>
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="text-3xl font-bold text-foreground">78</span>
-                </div>
-              </div>
-            </div>
-            <div className="flex-1 space-y-4">
-              <div>
-                <p className="text-lg font-semibold text-foreground mb-2">Good Financial Health</p>
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  You're doing well! Your savings rate is strong and spending is mostly under control. Focus on the
-                  high-priority recommendations to improve further.
-                </p>
-              </div>
-              <div className="grid grid-cols-3 gap-4">
-                <div className="space-y-1">
-                  <p className="text-xs text-muted-foreground">Savings Rate</p>
-                  <p className="text-lg font-semibold text-accent">26%</p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-xs text-muted-foreground">Budget Adherence</p>
-                  <p className="text-lg font-semibold text-chart-1">82%</p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-xs text-muted-foreground">Goal Progress</p>
-                  <p className="text-lg font-semibold text-chart-4">68%</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Advice Tabs */}
-      <Tabs defaultValue="all" className="space-y-6">
-        <TabsList>
-          <TabsTrigger value="all">All Advice</TabsTrigger>
-          <TabsTrigger value="savings">Savings</TabsTrigger>
-          <TabsTrigger value="spending">Spending</TabsTrigger>
-          <TabsTrigger value="investment">Investment</TabsTrigger>
-          <TabsTrigger value="tax">Tax</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="all" className="space-y-4">
-          {advice.map((item) => (
-            <Card key={item.id}>
-              <CardContent className="pt-6">
-                <div className="flex gap-4">
-                  <div
-                    className={`w-12 h-12 rounded-lg flex items-center justify-center shrink-0 ${getCategoryColor(item.category)}`}
-                  >
-                    {getCategoryIcon(item.category)}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-4 mb-3">
-                      <div className="flex-1">
-                        <h3 className="font-semibold text-foreground mb-2">{item.title}</h3>
-                        {getPriorityBadge(item.priority)}
-                      </div>
-                    </div>
-                    <p className="text-sm text-muted-foreground leading-relaxed mb-3">{item.description}</p>
-                    <div className="flex items-center justify-between pt-3 border-t border-border">
-                      <div className="flex items-center gap-2">
-                        <TrendingUp className="w-4 h-4 text-accent" />
-                        <span className="text-sm font-medium text-foreground">{item.impact}</span>
-                      </div>
-                      {item.actionable && (
-                        <Button variant="ghost" size="sm" className="gap-2">
-                          Take Action
-                          <ChevronRight className="w-4 h-4" />
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </TabsContent>
-
-        {["savings", "spending", "investment", "tax"].map((category) => (
-          <TabsContent key={category} value={category} className="space-y-4">
-            {filterByCategory(category).map((item) => (
-              <Card key={item.id}>
-                <CardContent className="pt-6">
-                  <div className="flex gap-4">
-                    <div
-                      className={`w-12 h-12 rounded-lg flex items-center justify-center shrink-0 ${getCategoryColor(item.category)}`}
-                    >
-                      {getCategoryIcon(item.category)}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-4 mb-3">
-                        <div className="flex-1">
-                          <h3 className="font-semibold text-foreground mb-2">{item.title}</h3>
-                          {getPriorityBadge(item.priority)}
-                        </div>
-                      </div>
-                      <p className="text-sm text-muted-foreground leading-relaxed mb-3">{item.description}</p>
-                      <div className="flex items-center justify-between pt-3 border-t border-border">
-                        <div className="flex items-center gap-2">
-                          <TrendingUp className="w-4 h-4 text-accent" />
-                          <span className="text-sm font-medium text-foreground">{item.impact}</span>
-                        </div>
-                        {item.actionable && (
-                          <Button variant="ghost" size="sm" className="gap-2">
-                            Take Action
-                            <ChevronRight className="w-4 h-4" />
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </TabsContent>
-        ))}
-      </Tabs>
-
-      {/* Ask AI Section */}
-      <Card className="mt-8">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-primary" />
-            Ask FinWise AI
-          </CardTitle>
-          <CardDescription>Get personalized answers to your financial questions</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <Button variant="outline" className="justify-start h-auto py-3 px-4 bg-transparent">
-                <div className="text-left">
-                  <p className="font-medium text-sm">How can I reduce my tax burden?</p>
-                  <p className="text-xs text-muted-foreground mt-1">Get tax optimization strategies</p>
-                </div>
-              </Button>
-              <Button variant="outline" className="justify-start h-auto py-3 px-4 bg-transparent">
-                <div className="text-left">
-                  <p className="font-medium text-sm">Should I invest or save more?</p>
-                  <p className="text-xs text-muted-foreground mt-1">Balance savings and investments</p>
-                </div>
-              </Button>
-              <Button variant="outline" className="justify-start h-auto py-3 px-4 bg-transparent">
-                <div className="text-left">
-                  <p className="font-medium text-sm">How to price my services?</p>
-                  <p className="text-xs text-muted-foreground mt-1">Optimize your pricing strategy</p>
-                </div>
-              </Button>
-              <Button variant="outline" className="justify-start h-auto py-3 px-4 bg-transparent">
-                <div className="text-left">
-                  <p className="font-medium text-sm">When should I hire help?</p>
-                  <p className="text-xs text-muted-foreground mt-1">Growth and scaling advice</p>
-                </div>
-              </Button>
-            </div>
-            <Button className="w-full gap-2">
-              <Sparkles className="w-4 h-4" />
-              Ask a Custom Question
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   )
 }

@@ -2,20 +2,20 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
+import { useAuth, useUser } from "@clerk/nextjs"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Sparkles, ArrowRight, ArrowLeft } from "lucide-react"
-import { createClient } from "@/lib/supabase/client"
 import { Checkbox } from "@/components/ui/checkbox"
 
 export default function OnboardingPage() {
   const router = useRouter()
+  const { isLoaded: authLoaded, userId } = useAuth()
+  const { user, isLoaded: userLoaded } = useUser()
   const [step, setStep] = useState(1)
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
   const [displayName, setDisplayName] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
@@ -28,56 +28,50 @@ export default function OnboardingPage() {
   })
 
   useEffect(() => {
-    const name = sessionStorage.getItem("signupName")
-    const storedEmail = sessionStorage.getItem("signupEmail")
-    const storedPassword = sessionStorage.getItem("signupPassword")
+    if (!authLoaded || !userLoaded) return
 
-    if (!storedEmail || !storedPassword) {
-      router.push("/signup")
+    // Check if user is authenticated
+    if (!userId) {
+      router.push("/auth/signup")
       return
     }
 
-    setDisplayName(name || "")
-    setEmail(storedEmail)
-    setPassword(storedPassword)
-  }, [router])
+    // Get user info from Clerk or sessionStorage
+    if (user) {
+      const firstName = user.firstName || ""
+      const lastName = user.lastName || ""
+      setDisplayName(`${firstName} ${lastName}`.trim() || user.emailAddresses[0]?.emailAddress || "")
+    } else {
+      // Fallback to sessionStorage for email/password signups
+      const name = sessionStorage.getItem("signupName")
+      if (name) {
+        setDisplayName(name)
+      }
+    }
+  }, [authLoaded, userLoaded, userId, user, router])
 
   const handleNext = async () => {
     if (step < 3) {
       setStep(step + 1)
     } else {
-      // Complete onboarding and create account
+      // Complete onboarding
       setIsLoading(true)
       setError(null)
 
-      const supabase = createClient()
-
       try {
-        const { error: signUpError } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            emailRedirectTo: process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL || `${window.location.origin}/dashboard`,
-            data: {
-              display_name: displayName,
-              business_type: formData.businessType,
-              monthly_income: Number.parseFloat(formData.monthlyIncome) || 0,
-              financial_goals: formData.financialGoals,
-            },
-          },
-        })
-
-        if (signUpError) throw signUpError
-
+        // TODO: Save onboarding data to your backend API
+        // Example: await fetch('/api/user/onboarding', { method: 'POST', body: JSON.stringify({ ...formData, displayName }) })
+        
         // Clear sessionStorage
         sessionStorage.removeItem("signupName")
         sessionStorage.removeItem("signupEmail")
         sessionStorage.removeItem("signupPassword")
 
-        // Redirect to success page
-        router.push("/signup-success")
+        // Redirect to dashboard after completing onboarding
+        router.push("/dashboard")
+        router.refresh()
       } catch (err: any) {
-        setError(err.message || "Failed to create account")
+        setError(err.message || "Failed to complete onboarding")
         setIsLoading(false)
       }
     }
@@ -87,7 +81,7 @@ export default function OnboardingPage() {
     if (step > 1) {
       setStep(step - 1)
     } else {
-      router.push("/signup")
+      router.push("/auth/signup")
     }
   }
 
@@ -107,7 +101,7 @@ export default function OnboardingPage() {
           <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
             <Sparkles className="w-6 h-6 text-primary-foreground" />
           </div>
-          <span className="text-2xl font-semibold text-foreground">FinWise</span>
+          <span className="text-2xl font-semibold text-foreground">FinsWize</span>
         </div>
 
         {/* Progress Indicator */}
