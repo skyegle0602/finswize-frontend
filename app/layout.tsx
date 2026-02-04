@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import { ClerkProvider } from '@clerk/nextjs'
 import { ErrorHandler } from '@/components/error-handler'
+import { Toaster } from 'sonner'
 import './globals.css'
 
 const _geist = Geist({ subsets: ["latin"] });
@@ -25,6 +26,7 @@ export default function RootLayout({
         <body className={`font-sans antialiased`}>
           <ErrorHandler />
           {children}
+          <Toaster />
           <Analytics />
         </body>
       </html>

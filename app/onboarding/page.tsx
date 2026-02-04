@@ -59,9 +59,33 @@ export default function OnboardingPage() {
       setError(null)
 
       try {
-        // TODO: Save onboarding data to your backend API
-        // Example: await fetch('/api/user/onboarding', { method: 'POST', body: JSON.stringify({ ...formData, displayName }) })
-        
+        // First, sync user from Clerk to MongoDB
+        const syncResponse = await fetch('/api/user/sync', {
+          method: 'POST',
+        })
+
+        if (!syncResponse.ok) {
+          const syncError = await syncResponse.json()
+          throw new Error(syncError.error || 'Failed to sync user')
+        }
+
+        // Then, save onboarding data
+        const onboardingResponse = await fetch('/api/user/onboarding', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            ...formData,
+            displayName,
+          }),
+        })
+
+        if (!onboardingResponse.ok) {
+          const onboardingError = await onboardingResponse.json()
+          throw new Error(onboardingError.error || 'Failed to save onboarding data')
+        }
+
         // Clear sessionStorage
         sessionStorage.removeItem("signupName")
         sessionStorage.removeItem("signupEmail")

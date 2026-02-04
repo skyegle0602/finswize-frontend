@@ -5,6 +5,7 @@ import { ChatMessage } from "@/components/ai-advisor/chat-message"
 import { QuickActions } from "@/components/ai-advisor/quick-actions"
 import { ChatInput } from "@/components/ai-advisor/chat-input"
 import { useState, useRef, useEffect } from "react"
+import { useSearchParams } from "next/navigation"
 
 interface Message {
   id: string
@@ -22,14 +23,68 @@ interface Message {
 }
 
 export default function AIAdvisorPage() {
+  const searchParams = useSearchParams()
+  const context = searchParams.get("context")
+  const goalId = searchParams.get("goalId")
+
   // Mock data - in production, this would come from your backend
   const lastSynced = "Jan 24, 2025"
   const cashBalance = 12450
   const runway = 4.2
   const alertCount = 2
 
+  // Fetch saving goal data if context is provided
+  const [goalData, setGoalData] = useState<any>(null)
+  const [isLoadingGoal, setIsLoadingGoal] = useState(false)
+
+  useEffect(() => {
+    if (context === "saving-goal" && goalId) {
+      setIsLoadingGoal(true)
+      fetch(`/api/saving-goals/${goalId}`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.goal) {
+            setGoalData(data.goal)
+          }
+        })
+        .catch((error) => {
+          console.error("Error fetching goal:", error)
+        })
+        .finally(() => {
+          setIsLoadingGoal(false)
+        })
+    }
+  }, [context, goalId])
+
   // Generate data-driven first message
   const getInitialMessage = (): Message => {
+    // If context is saving-goal, show goal-specific message
+    if (context === "saving-goal" && goalData) {
+      const progress = (goalData.savedAmount / goalData.targetAmount) * 100
+      const remaining = goalData.targetAmount - goalData.savedAmount
+      const monthsNeeded = goalData.monthlyContribution > 0 
+        ? Math.ceil(remaining / goalData.monthlyContribution)
+        : Infinity
+      
+      return {
+        id: "1",
+        isAI: true,
+        message: `I see you're working on your "${goalData.name}" goal. You've saved $${goalData.savedAmount.toLocaleString()} of $${goalData.targetAmount.toLocaleString()} (${progress.toFixed(0)}% complete).`,
+        reason: goalData.isPaused
+          ? "This goal is currently paused. Would you like to resume it or adjust your plan?"
+          : monthsNeeded !== Infinity
+          ? `At your current rate of $${goalData.monthlyContribution.toLocaleString()}/month, you'll reach your goal in about ${monthsNeeded} month${monthsNeeded > 1 ? "s" : ""}.`
+          : "Consider setting a monthly contribution to track your progress.",
+        actions: [
+          { label: "Adjust goal", href: `/dashboard/planning?tab=goals&goalId=${goalId}`, variant: "default" },
+          { label: "View planning", href: "/dashboard/planning", variant: "outline" },
+        ],
+        dataSource: `Based on your "${goalData.name}" saving goal`,
+        suggestedNextStep: goalData.isPaused ? "Resume or adjust your goal in Planning" : "Adjust your monthly contribution to reach your goal faster",
+      }
+    }
+
+    // Default message
     const runwayText = runway < 3 ? "below the safe zone" : runway < 6 ? "needs attention" : "is healthy"
     const alertText = alertCount > 0 ? `${alertCount} alert${alertCount > 1 ? "s" : ""} may affect your cash flow this month` : "no urgent alerts"
     
@@ -54,13 +109,25 @@ export default function AIAdvisorPage() {
     }
   }
 
-  const [messages, setMessages] = useState<Message[]>([getInitialMessage()])
+  const [messages, setMessages] = useState<Message[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }
+
+  // Initialize messages when goal data is loaded or on mount
+  useEffect(() => {
+    if (context === "saving-goal") {
+      if (!isLoadingGoal) {
+        setMessages([getInitialMessage()])
+      }
+    } else {
+      setMessages([getInitialMessage()])
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [goalData, isLoadingGoal, context])
 
   useEffect(() => {
     scrollToBottom()

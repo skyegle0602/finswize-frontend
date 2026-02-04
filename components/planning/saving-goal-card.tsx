@@ -2,8 +2,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { CheckCircle2, Pause, MoreVertical } from "lucide-react"
-import { useState } from "react"
+import { CheckCircle2, Loader2, Trash2 } from "lucide-react"
 
 interface SavingGoalCardProps {
   id: string
@@ -13,12 +12,15 @@ interface SavingGoalCardProps {
   monthlyContribution: number
   targetDate?: string
   isPaused?: boolean
+  isPausing?: boolean
+  isDeleting?: boolean
   impact?: {
     freeCashReduction: number
     runwayImpact: number
   }
   onAdjust: () => void
   onPause: () => void
+  onDelete: () => void
   onAskAI: () => void
 }
 
@@ -29,9 +31,12 @@ export function SavingGoalCard({
   monthlyContribution,
   targetDate,
   isPaused = false,
+  isPausing = false,
+  isDeleting = false,
   impact,
   onAdjust,
   onPause,
+  onDelete,
   onAskAI,
 }: SavingGoalCardProps) {
   const progress = (savedAmount / targetAmount) * 100
@@ -42,9 +47,25 @@ export function SavingGoalCard({
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle>{name}</CardTitle>
-          {isPaused && (
-            <span className="text-xs px-2 py-1 bg-yellow-100 text-yellow-800 rounded">Paused</span>
-          )}
+          <div className="flex items-center gap-2">
+            {isPaused && (
+              <span className="text-xs px-2 py-1 bg-yellow-100 text-yellow-800 rounded">Paused</span>
+            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onDelete}
+              disabled={isDeleting}
+              className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+              title="Delete goal"
+            >
+              {isDeleting ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Trash2 className="w-4 h-4" />
+              )}
+            </Button>
+          </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -109,8 +130,21 @@ export function SavingGoalCard({
           <Button variant="outline" size="sm" onClick={onAdjust} className="flex-1">
             Adjust
           </Button>
-          <Button variant="outline" size="sm" onClick={onPause} className="flex-1">
-            {isPaused ? "Resume" : "Pause"}
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={onPause} 
+            className="flex-1"
+            disabled={isPausing}
+          >
+            {isPausing ? (
+              <>
+                <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                {isPaused ? "Resuming..." : "Pausing..."}
+              </>
+            ) : (
+              isPaused ? "Resume" : "Pause"
+            )}
           </Button>
           <Button variant="outline" size="sm" onClick={onAskAI}>
             Ask AI
